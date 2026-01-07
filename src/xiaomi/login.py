@@ -60,6 +60,9 @@ class MiCloudSync:
 
     def __init__(self, sid: str = "xiaomiio"):
         self.session = requests.Session()
+        self.session.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        })
         self.sid = sid
         self.device_id = get_random_string(16)
         self.auth: dict = {}
@@ -327,15 +330,20 @@ class XiaomiLogin:
         print("\n🖼️  Captcha Required")
         
         captcha_image = result.get("captcha")
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as f:
+        # Save to host mount if available (for Docker), otherwise current directory
+        if os.path.exists("/app/host_mount"):
+            captcha_path = "/app/host_mount/captcha.png"
+        else:
+            captcha_path = "captcha.png"
+            
+        with open(captcha_path, "wb") as f:
             f.write(captcha_image)
-            captcha_path = f.name
         
-        print(f"📸 Captcha image saved to: {captcha_path}")
+        print(f"📸 Captcha image saved to: {os.path.abspath(captcha_path)}")
         
         # Try to open in browser
         try:
-            webbrowser.open(f"file://{captcha_path}")
+            webbrowser.open(f"file://{os.path.abspath(captcha_path)}")
             print("✅ Captcha image opened in browser")
         except Exception as e:
             print(f"⚠️  Could not open browser: {e}")
@@ -345,7 +353,10 @@ class XiaomiLogin:
         code = input("\nEnter the captcha code: ").strip()
         
         # Cleanup
-        Path(captcha_path).unlink(missing_ok=True)
+        try:
+            os.remove(captcha_path)
+        except OSError:
+            pass
         
         if not code:
             print("❌ No code entered. Aborting.")

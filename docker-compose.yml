@@ -1,0 +1,18 @@
+services:
+  garmin-sync:
+    build: .
+    image: garmin-weight-sync
+    container_name: garmin-weight-sync
+    volumes:
+      # Mount configuration file
+      - ./users.json:/app/users.json
+      # Mount output directory for FIT files
+      - ./garmin-fit:/app/garmin-fit
+      # Mount Garmin session directory for persistence
+      - ./.garth:/app/.garth
+      # Mount current directory to access captcha.png if needed
+      # (Optional, but recommended for interactive login)
+      - ./:/app/host_mount
+    environment:
+      - TZ=Asia/Shanghai
+    working_dir: /app

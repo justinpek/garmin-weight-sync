@@ -8,9 +8,10 @@
 1. [新手环境准备](#1-新手环境准备)
 2. [下载与安装](#2-下载与安装)
 3. [快速配置](#3-快速配置)
-4. [核心使用流程](#4-核心使用流程)
+4. [核心使用流程 (Python 方式)](#4-核心使用流程-python-方式)
 5. [进阶功能说明](#5-进阶功能说明)
-6. [常见问题 (FAQ)](#6-常见问题-faq)
+6. [Docker 使用指南 (推荐)](#6-docker-使用指南-推荐)
+7. [常见问题 (FAQ)](#7-常见问题-faq)
 
 ---
 
@@ -25,14 +26,16 @@ garmin-weight-sync/
 │   └── main.py         # 一键同步主程序
 ├── users.json          # 您的核心配置文件 (存账号密码)
 ├── requirements.txt    # 必须安装的程序组件包
+├── Dockerfile          # Docker 构建文件
+├── docker-compose.yml  # Docker 编排文件
 └── README.md           # 您正在看的这份文档
 ```
 
-在开始使用之前，您需要确保电脑上安装了 Python（这是运行此程序的程序包）。
+在开始使用之前，您需要确保电脑上安装了 Python（这是运行此程序的程序包）。**如果您使用 Docker，可以跳过此步骤。**
 
 ### 第一步：安装 Python
 1. 访问 [Python 官网](https://www.python.org/downloads/)。
-2. 下载并安装 **Python 3.12.6** **3.14会导致同步不了**。
+2. 下载并安装 **Python 3.12.6** **(注意：Python 3.14 可能导致兼容性问题)**。
 3. **特别注意**：安装过程中，一定要勾选 **"Add Python to PATH"**（将 Python 添加到系统变量）。
 
 ### 第二步：确认安装成功
@@ -105,7 +108,7 @@ pip install -r requirements.txt
 
 ---
 
-## 4. 核心使用流程
+## 4. 核心使用流程 (Python 方式)
 
 ### 第一阶段：获取小米授权 (仅需执行一次)
 因为小米账号需要处理图形验证码或短信验证，我们需要手动运行登录工具：
@@ -151,7 +154,55 @@ python src/main.py --config users.json --sync
 
 ---
 
-## 6. 常见问题 (FAQ)
+## 6. Docker 使用指南 (推荐)
+
+如果您不想在本地安装 Python 环境，可以使用 Docker 运行本工具。
+
+### 准备工作
+1. 确保已安装 Docker 和 Docker Compose。
+2. 在项目根目录下创建或修改 `users.json`，填入您的账号信息。
+
+### 步骤一：构建镜像
+```bash
+docker-compose build
+```
+
+### 步骤二：首次登录 (交互式)
+首次使用需要手动登录以获取 Token。请运行以下命令进入交互模式：
+
+```bash
+# Windows (PowerShell)
+docker run --rm -it -v ${PWD}/users.json:/app/users.json -v ${PWD}:/app/host_mount garmin-weight-sync python src/xiaomi/login.py
+
+# Linux / macOS
+docker run --rm -it -v $(pwd)/users.json:/app/users.json -v $(pwd):/app/host_mount garmin-weight-sync python src/xiaomi/login.py
+```
+
+**注意**：
+- 如果出现图形验证码，程序会在当前目录下生成 `captcha.png`。
+- 请直接在文件夹中打开查看，然后在终端输入验证码。
+- 登录成功后，Token 会自动保存到您的 `users.json` 文件中。
+
+### 步骤三：一键同步
+登录成功后，即可运行同步任务：
+
+```bash
+# 使用 Docker Compose 运行 (推荐)
+docker-compose up
+```
+
+这将启动容器，执行同步任务，完成后容器会自动退出。
+
+如果您希望它在后台定时运行，建议结合系统的定时任务（如 crontab）来调用上述命令，或者编写一个简单的 shell 脚本。
+
+```bash
+# 或者使用 Docker Run 手动运行
+docker run --rm -v ${PWD}/users.json:/app/users.json -v ${PWD}/garmin-fit:/app/garmin-fit -v ${PWD}/.garth:/app/.garth garmin-weight-sync
+```
+
+---
+
+## 7. 常见问题 (FAQ)
 
 ### Q: 提示 `ModuleNotFoundError: No module named 'requests'` 怎么办？
 A: 确保您已激活虚拟环境并运行了 `pip install -r requirements.txt`。
@@ -176,3 +227,8 @@ A: 理论上支持小米运动健康里绑定的所有体脂秤。如果默认 m
 ## ✨ 许可证
 MIT License. 开发者：Leslie & Gemini Pair.
 参考项目：[XiaomiGateway3](https://github.com/AlexxIT/XiaomiGateway3), [garth](https://github.com/matin/garth)
+
+### Q: 在海外服务器上登录失败 / 提示 Connection aborted？
+A: 小米账号对异地登录（尤其是海外 IP）有严格的风控。
+1. 请先在**本地电脑**（同 IP 环境或常用环境）登录一次小米账号，处理完所有的“跨境数据传输”同意弹窗。
+2. 如果仍然失败，建议在本地电脑运行此工具获取 `users.json` (包含 Token)，然后将生成的 `users.json` 上传到服务器覆盖即可。Token 一旦生成，通常可以在不同 IP 下使用。
